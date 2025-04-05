@@ -43,7 +43,7 @@ problems = {
 import torch.nn.functional as F
 import torch
 from sentence_transformers import SentenceTransformer
-model = SentenceTransformer("asaakyan/ruRoPEBert-e5-base-512-allRU-authorship")
+model = SentenceTransformer("sentence-transformers/distiluse-base-multilingual-cased-v2")
 def clf_input(request):
   embeddings = model.encode([request, *list(problems.values())])
   similarities = model.similarity(embeddings, embeddings)

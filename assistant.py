@@ -6,11 +6,14 @@ from langchain.embeddings.base import Embeddings
 from langchain.prompts import PromptTemplate
 from typing import List, Dict, Optional
 from langchain_community.chat_models import ChatOpenAI
+from langchain.docstore.document import Document as LangchainDocument
 import json
 from langchain.vectorstores import FAISS
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
+import os
+from parser import read_pdf_to_docs
 
 from preprocessing import make_query_list
 from websearch import search_text
@@ -52,6 +55,7 @@ class Assistant:
                                           distance_strategy=DistanceStrategy.COSINE,
                                           allow_dangerous_deserialization=True
                                       )
+        print("Num of docs in vecstore", self.indexKnowledge.index.ntotal)
 
         self.mainAgent = self._getMainAgent()
 
@@ -71,6 +75,38 @@ class Assistant:
             model_name=model_path
         )
         return embedding_model
+
+    def _add_pdf(self, pdf_path):
+        raw_docs = read_pdf_to_docs(pdf_path)
+        new_docs = [
+            LangchainDocument(page_content=doc["text"], metadata={"source": doc["source"]})
+            for doc in raw_docs
+        ]
+        
+        # Получаем тексты новых документов и вычисляем их эмбеддинги
+        new_texts = [doc.page_content for doc in new_docs]
+        new_embeddings = [self.embedder.embed_query(text) for text in new_texts]
+        new_embeddings = np.array(new_embeddings).astype("float32")
+        
+        # Определяем текущее количество документов в индексе
+        current_size = self.indexKnowledge.index.ntotal
+
+        
+        # Добавляем новые эмбеддинги в уже существующий faiss индекс
+        self.indexKnowledge.index.add(new_embeddings)
+        
+        # Обновляем docstore и index_to_docstore_id для новых документов
+        for i, doc in enumerate(new_docs):
+            # Создаем уникальный id для нового документа
+            new_doc_id = str(current_size + i)
+            self.indexKnowledge.docstore.add({new_doc_id: doc})
+            self.indexKnowledge.index_to_docstore_id[current_size + i] = new_doc_id
+            
+        print("Num of docs in vecstore", self.indexKnowledge.index.ntotal)
+        # Сохраняем обновленный индекс на диск
+        self.indexKnowledge.save_local("data/vecstore")
+        print("Новые документы успешно добавлены и обновленный индекс сохранен.")
+
 
     def _create_faiss_index(self, questions: list):
         """

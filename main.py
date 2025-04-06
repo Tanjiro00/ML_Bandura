@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from typing import List, Dict, Optional, Union
 import requests
 import httpx
+import shutil
 
 load_dotenv()  # Загружаем переменные из .env файла
 
@@ -155,6 +156,21 @@ class websearchOutput(BaseModel):
 @app.post("/websearch")
 async def websearch(request: inputQuery) -> websearchOutput:
     return assistant.getAnswerFromInternet(request.query, await getHistory(request.user_id))
+
+
+@app.post("/upload_pdf/")
+async def upload_pdf(file: UploadFile = File(...)):
+    # Папка для сохранения загруженных файлов
+    upload_dir = "./uploaded_files"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Сохраняем файл на диск
+    file_location = os.path.join(upload_dir, file.filename)
+    with open(file_location, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Пересоздаем базу знаний с новым PDF
+    assistant._add_pdf(pdf_path=file_location)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8009)

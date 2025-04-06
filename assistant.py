@@ -100,10 +100,13 @@ class Assistant:
         return LLMChain(
             llm=self.llm,
             prompt=PromptTemplate(
-                input_variables=["context", "query"],
+                input_variables=["context", "query", "history"],
                 template="""Ты эксперт портала поставщиков. Твоя задача — помогать пользователям находить информацию о тендерах, закупках и требованиях к поставщикам.
                             При формировании ответа обязательно приводи источник информации (например, название документа или идентификатор) и процитируй релевантные фрагменты контекста, в которых содержится ответ на вопрос.
                             Если в предоставленном контексте нет информации, явно укажи, что релевантных данных не обнаружено.
+                            
+                            История чата:
+                            {history}
 
                             Контекст:
                             {context}
@@ -155,8 +158,10 @@ class Assistant:
         return LLMChain(
             llm=self.llm,
             prompt=PromptTemplate(
-                input_variables=["query", "web_info"],
+                input_variables=["query", "web_info", "history"],
                 template="""Ты ассистент, который принимает на вход запрос query и web_info.
+                История чата:
+                {history}
                 Ты должен найти информацию в web_info который релевантен для ответа на запрос query.
                 Если ты не нашел информацию в web_info выводи 'No info'
                 query: {query} и web_info: {web_info}
@@ -183,7 +188,7 @@ class Assistant:
         return similar_questions
 
 
-    def getAnswerOnStage1(self, query):
+    def getAnswerOnStage1(self, query, history):
         chunks = self.retrive(query, k=5)
         context = ""
         for idx, chunk in enumerate(chunks):
@@ -191,12 +196,13 @@ class Assistant:
         print(context)
         response = self.mainAgent({
             "context": context,
-            "query": query
+            "query": query,
+            "history": history
         })
         return response["response"]
 
 
-    def getAnswerOnStage2(self, query):
+    def getAnswerOnStage2(self, query, history):
         query = self.preprocessing(query)
         chunks = self.retrive(query)
         n_chunks = len(chunks)
@@ -210,7 +216,8 @@ class Assistant:
 
             response = self.mainAgent({
                 "context": context,
-                "query": query
+                "query": query,
+                "history": history
             })
             return response["response"]
 
@@ -218,7 +225,7 @@ class Assistant:
             return self.getButtons(chunks, query)
 
 
-    def getAnswerFromInternet(self, query):
+    def getAnswerFromInternet(self, query, history):
         results = search_text(query)
         all_model_results = ''
         final_json = {
@@ -229,7 +236,8 @@ class Assistant:
             if result['status'] == 'success':
                 output = self.internetAgent({
                     "query": query,
-                    "web_info": result["text"]
+                    "web_info": result["text"],
+                    "history": history
                 })["response"]
                 all_model_results = all_model_results + ' ' + output
                 if output == "No info":
@@ -240,7 +248,8 @@ class Assistant:
                 })
         response = self.internetAgent({
                           "query": query,
-                          "web_info": all_model_results
+                          "web_info": all_model_results,
+                          "history": history
                         })["response"]
 
         final_json['final_output'] = response

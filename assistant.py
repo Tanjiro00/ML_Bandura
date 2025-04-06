@@ -101,7 +101,7 @@ class Assistant:
             new_doc_id = str(current_size + i)
             self.indexKnowledge.docstore.add({new_doc_id: doc})
             self.indexKnowledge.index_to_docstore_id[current_size + i] = new_doc_id
-            
+
         print("Num of docs in vecstore", self.indexKnowledge.index.ntotal)
         # Сохраняем обновленный индекс на диск
         self.indexKnowledge.save_local("data/vecstore")
@@ -276,7 +276,7 @@ class Assistant:
                     "history": history
                 })["response"]
                 all_model_results = all_model_results + ' ' + output
-                if output == "No info":
+                if "no info" in output.lower():
                     continue
                 final_json['parse_web'].append({
                     'url': result['url'],

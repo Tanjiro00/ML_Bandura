@@ -166,7 +166,7 @@ class Assistant:
 
     def clf_input(self, request):
         model = self.embedder.model
-        embeddings = model.encode([request, *list(problems.values())])
+        embeddings = model.encode([request, *list(classes.values())])
         similarities = model.similarity(embeddings, embeddings)
         return list(classes.keys())[similarities[0][1:].argmax(-1)]
 

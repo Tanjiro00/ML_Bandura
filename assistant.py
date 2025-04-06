@@ -14,6 +14,7 @@ from sentence_transformers import SentenceTransformer
 
 from preprocessing import make_query_list
 from websearch import search_text
+from classes import classes
 
 
 class MyEmbeddings(Embeddings):
@@ -86,11 +87,12 @@ class Assistant:
         index.add(embeddings)
         return index, embeddings
 
-    def retrive(self, query, k=10, treshold=0.65):
+    def retrive(self, query, k=10, treshold=0.75):
         results = self.indexKnowledge.similarity_search_with_score(
             query,
             k
         )
+        print(results)
         return [res.page_content for res, score in results if score > treshold]
 
 
@@ -162,6 +164,13 @@ class Assistant:
             output_key="response"
         )
 
+    def clf_input(self, request):
+        model = self.embedder.model
+        embeddings = model.encode([request, *list(problems.values())])
+        similarities = model.similarity(embeddings, embeddings)
+        return list(classes.keys())[similarities[0][1:].argmax(-1)]
+
+
     def getQuestions(self, query: str, k: int = 3):
         # Предварительная обработка запроса
         processed_query = self.preprocessing(query)
@@ -223,6 +232,8 @@ class Assistant:
                     "web_info": result["text"]
                 })["response"]
                 all_model_results = all_model_results + ' ' + output
+                if output == "No info":
+                    continue
                 final_json['parse_web'].append({
                     'url': result['url'],
                     'text': output,
@@ -233,6 +244,7 @@ class Assistant:
                         })["response"]
 
         final_json['final_output'] = response
+        final_json["category"] = self.clf_input(response)
         return final_json
 
 
